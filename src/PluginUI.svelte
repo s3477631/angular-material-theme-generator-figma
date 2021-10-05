@@ -1,60 +1,136 @@
 <script>
+    import CopyButton from './assets/copy-button.svg';
+    import styles from './styles.css';
+    import { onMount } from 'svelte';
+    import TypographyPanel from "./TypographyPanel.svelte";
+    import PanelSwitch from "./PanelSwitch.svelte";
+    import {selectedTab} from "./store";
+    let paletteName = "";
+    let colors = [];
+    let colorPaletteContainer;
+    let codeOutput;
+    let hasCode = false;
+    let notification;
+    let selectedColorType;
+    let colorTypes = [
+        {id: 1, text: 'vector'},
+        {id: 2, text: 'rectangle'}
+    ]
 
-	//import Global CSS from the svelte boilerplate
-	//contains Figma color vars, spacing vars, utility classes and more
-	import { GlobalCSS } from 'figma-plugin-ds-svelte';
+    onMount(async () => {
+        window.onmessage = async (event) => {
+            filterMessage(event)
+        }
+    });
 
-	//import some Svelte Figma UI components
-	import { Button, Input, Label, SelectMenu } from 'figma-plugin-ds-svelte';
 
-	//menu items, this is an array of objects to populate to our select menus
-	let menuItems = [
-        { 'value': 'rectangle', 'label': 'Rectangle', 'group': null, 'selected': false },
-        { 'value': 'triangle', 'label': 'Triangle ', 'group': null, 'selected': false },
-        { 'value': 'circle', 'label': 'Circle', 'group': null, 'selected': false }
-	];
+    const addCode = (message) => {
+        let textNode = document.createTextNode(message.toString());
+        textNode.className = 'codeColor'
+        codeOutput.appendChild(textNode)
+        hasCode = true;
+    }
 
-	var disabled = true;
-	var selectedShape;
-	var count = 5;
+    const filterMessage = (event) => {
+        const message = JSON.parse(event.data.pluginMessage)
+        if (Object.keys(message).toString() == "color") {
+            colors = [...colors, Object.values(message).toString()];
+        } else {
+           addCode(Object.values(message))
+        }
+    }
 
-	//this is a reactive variable that will return false when a value is selected from
-	//the select menu, its value is bound to the primary buttons disabled prop
-	$: disabled = selectedShape === null;
+    const copyCode = () => {
+        let sel = document.getSelection();
+        let range = document.createRange(); //range object
+        range.selectNodeContents(codeOutput); //sets Range
+        sel.removeAllRanges(); //remove all ranges from selection
+        sel.addRange(range);//add Range to a Selection.
+        document.execCommand("copy")
+        notification.classList.toggle('copied-notification')
+        setTimeout(() => {
+            notification.classList.toggle('copied-notification')
+        }, 1500)
+    }
 
-	function createShapes() {
-		parent.postMessage({ pluginMessage: { 
-			'type': 'create-shapes', 
-			'count': count,
-			'shape': selectedShape.value
-		} }, '*');
-	}
 
-	function cancel() {
-		parent.postMessage({ pluginMessage: { 'type': 'cancel' } }, '*')
-	}
+    const generateSheet = () => {
+        const colorElements = colorPaletteContainer.children
+        const colors = {};
+        const palette = {};
+        let i = 0;
+        for (let item of colorElements) {
+            if (i == 0) {
+                i = 50
+                colors[i] = item.value
+                i = 100
+            } else {
+                colors[i] = item.value
+                i += 100;
+            }
+        };
+        if (paletteName == "") {
+            palette['defaultTheme'] = colors;
+        } else {
+            palette[paletteName] = colors;
+        }
+        const updatePalette = {
+            paletteUpdate: palette
+        }
+        parent.postMessage({pluginMessage: JSON.stringify(updatePalette)}, '*')
+    }
+
+    const clearSelected = () => {
+        colors = [];
+        codeOutput.innerHTML = "";
+        paletteName = "";
+        hasCode = false;
+    }
+    const updateSelectableColor = () => {
+        const updateSelectable = {
+            selectableType: selectedColorType.text
+        }
+        parent.postMessage({pluginMessage: JSON.stringify(updateSelectable)}, '*')
+    }
 
 </script>
-
-
 <div class="wrapper p-xxsmall">
-
-	<Label>Shape</Label>
-	<SelectMenu bind:menuItems={menuItems} bind:value={selectedShape} class="mb-xxsmall"/>
-	
-	<Label>Count</Label>
-	<Input iconText="#" bind:value={count} class="mb-xxsmall"/>
-
-	<div class="flex p-xxsmall mb-xsmall">
-	<Button on:click={cancel} variant="secondary" class="mr-xsmall">Cancel</Button>
-	<Button on:click={createShapes} bind:disabled={disabled}>Create shapes</Button>
-	</div>
-
+    <h2>Style Generator</h2>
+<!--    <PanelSwitch/>-->
+    <div class="{$selectedTab === 0 ? 'show-code' : 'hide-code'}">
+    <div class="generate-button-container">
+        <input placeholder="Name Palette"
+               bind:value={paletteName} class="palette-input" type="text"/>
+        <select class="palette-input"  bind:value={selectedColorType} on:change={updateSelectableColor} >
+            {#each colorTypes as colors}
+                <option selected={selectedColorType === colors.id} value={colors}>
+                    {colors.text}
+                </option>
+            {/each}
+        </select>
+        <div class="spacer"></div>
+        <div style="display: flex; flex-direction: column;">
+            <div class="notification notification-hide"
+                 bind:this={notification}>Copied!</div>
+            <button class="copy-button" on:click={copyCode}>
+                {@html CopyButton}
+            </button>
+        </div>
+        <button class="clear-button" on:click={clearSelected}>Clear</button>
+        <button class="generate-button" on:click={generateSheet}>Generate</button>
+    </div>
+    <div class="{hasCode === true ? 'show-code' : 'hide-code'}">
+        <span>Code:</span>
+        <div class="code-output" bind:this={codeOutput}></div>
+    <span>Preview:  </span>
+    </div>
+    <div class="stylesheet-container" bind:this={colorPaletteContainer}>
+        {#each colors as color (color)}
+            <input type="color" class="color-picker" value={color}/>
+        {/each}
+    </div>
+    </div>
+    <div class="{$selectedTab === 1 ? 'show-code' : 'hide-code'}">
+        <TypographyPanel/>
+    </div>
 </div>
-
-
-<style>
-
-/* Add additional global or scoped styles here */
-
-</style>
