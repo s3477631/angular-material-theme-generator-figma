@@ -13,12 +13,12 @@ This plugin assumes a shallow grouping of either vectors or rectangles. I would 
 Other features:
 
 this plugin loops through each selected rectangle or vector and shows a preview as each in a color input. You may change each individual selection, as needed (or to ensure accuracy).
-![color picker](https://imgur.com/sEVd2Gy)
+[Imgur](https://imgur.com/sEVd2Gy)
 
 
 Clicking generate will create a ready-to-go angular material theme color map:
 
-![color map](https://imgur.com/4OkqgVE)
+
 
 
 This app was written in svelte... feel free to fork and make better! 
